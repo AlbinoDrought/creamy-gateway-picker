@@ -33,7 +33,11 @@ const rawTemplateViewGateways = `
 			display: flex;
 			flex-direction: column;
 			justify-content: center;
-			max-width: 400px;
+		}
+		@media(min-width: 400px) {
+			.gateways {
+				max-width: 400px;
+			}
 		}
 
 		.gateway {
@@ -42,8 +46,18 @@ const rawTemplateViewGateways = `
 			border: 1px solid rgba(0,0,0,0.5);
 			
 			display: flex;
-			flex-direction: row;
-			justify-content: space-between;
+			text-align: center;
+			flex-direction: column;
+			justify-content: center;
+			align-items: center;
+		}
+		@media(min-width: 400px) {
+			.gateway {
+				text-align: unset;
+				flex-direction: row;
+				align-items: flex-start;
+				justify-content: space-between;
+			}
 		}
 
 		.gateway--active {
