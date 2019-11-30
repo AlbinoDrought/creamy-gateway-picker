@@ -4,7 +4,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/AlbinoDrought/creamy-gateway-override/remote"
+	"github.com/AlbinoDrought/creamy-gateway-picker/remote"
 )
 
 const dork = "[creamy-gateway]"

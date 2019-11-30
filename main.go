@@ -7,7 +7,7 @@ import (
 	"os/signal"
 	"sync"
 
-	"github.com/AlbinoDrought/creamy-gateway-override/remote"
+	"github.com/AlbinoDrought/creamy-gateway-picker/remote"
 	"github.com/caarlos0/env"
 	"github.com/imroc/req"
 )

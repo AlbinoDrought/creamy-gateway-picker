@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AlbinoDrought/creamy-gateway-override/remote"
+	"github.com/AlbinoDrought/creamy-gateway-picker/remote"
 )
 
 const rawTemplateViewGateways = `
@@ -17,7 +17,7 @@ const rawTemplateViewGateways = `
 <html lang="en">
 	<head>
 		<meta charset="utf-8">
-		<title>Creamy Gateway Override</title>
+		<title>Creamy Gateway Picker</title>
 		<meta name="viewport" content="width=device-width, initial-scale=1">
 		<style type="text/css">
 		html, body {
