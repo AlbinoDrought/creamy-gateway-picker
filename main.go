@@ -50,6 +50,15 @@ func main() {
 	gracefulWaitGroup := sync.WaitGroup{}
 	gracefulShutdownComplete := make(chan bool, 1)
 
+	go func() {
+		log.Println("performing client self-check")
+		_, err := client.ListGateways()
+		if err != nil {
+			log.Fatal("error during list gateways self-check", err)
+		}
+		log.Println("client self-check passed!")
+	}()
+
 	serverFinished := bootServer(ctx)
 	gracefulWaitGroup.Add(1)
 	go func() {
