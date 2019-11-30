@@ -10,18 +10,20 @@ import (
 const dork = "[creamy-gateway]"
 const deleteDork = "creamy-gateway-delete"
 
-var statelock sync.RWMutex
+// our connection to the remote client is stateful.
+// we can only be performing one thing at a time.
+var statelock sync.Mutex
 
 func getGatewayStatus() ([]remote.Gateway, error) {
-	statelock.RLock()
-	defer statelock.RUnlock()
+	statelock.Lock()
+	defer statelock.Unlock()
 
 	return client.ListGateways()
 }
 
 func getActiveRule(iface, source string) (remote.FirewallRule, error) {
-	statelock.RLock()
-	defer statelock.RUnlock()
+	statelock.Lock()
+	defer statelock.Unlock()
 
 	rules, err := client.ListRules(iface)
 	if err != nil {
