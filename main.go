@@ -52,7 +52,7 @@ func main() {
 
 	go func() {
 		log.Println("performing client self-check")
-		_, err := client.ListGateways()
+		_, err := getGatewayStatus()
 		if err != nil {
 			log.Fatal("error during list gateways self-check", err)
 		}
