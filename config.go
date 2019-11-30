@@ -5,5 +5,4 @@ type config struct {
 	RemoteUsername  string `env:"CREAMY_GATEWAY_REMOTE_USERNAME"`
 	RemotePassword  string `env:"CREAMY_GATEWAY_REMOTE_PASSWORD"`
 	RemoteInterface string `env:"CREAMY_GATEWAY_REMOTE_INTERFACE"`
-	RemoteReferrer  string `env:"CREAMY_GATEWAY_REMOTE_REFERRER"`
 }

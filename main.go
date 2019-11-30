@@ -23,7 +23,18 @@ func main() {
 		panic(err)
 	}
 
+	log.Println("all rules")
 	for _, rule := range rules {
 		log.Println(rule.Source(), rule.Destination(), rule.Gateway(), rule.Description())
 	}
+
+	rule, err := client.AddRule(cfg.RemoteInterface, "172.16.30.108", "*", "LOADBALANCE", "test")
+	if err != nil {
+		panic(err)
+	}
+	log.Println("created rule")
+	log.Println(rule.Source(), rule.Destination(), rule.Gateway(), rule.Description())
+
+	rule.Delete()
+	log.Println("deleted rule")
 }
