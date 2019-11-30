@@ -1,8 +1,9 @@
 package main
 
 type gateway struct {
-	Name  string
-	Label string
+	Name       string
+	Label      string
+	StatusName string
 }
 
 type config struct {
@@ -13,8 +14,9 @@ type config struct {
 	RemotePassword  string `env:"CREAMY_GATEWAY_REMOTE_PASSWORD"`
 	RemoteInterface string `env:"CREAMY_GATEWAY_REMOTE_INTERFACE"`
 
-	GatewayNames  []string `env:"CREAMY_GATEWAY_GATEWAYS" envSeparator:","`
-	GatewayLabels []string `env:"CREAMY_GATEWAY_GATEWAY_LABELS" envSeparator:","`
+	GatewayNames       []string `env:"CREAMY_GATEWAY_GATEWAYS" envSeparator:","`
+	GatewayLabels      []string `env:"CREAMY_GATEWAY_GATEWAY_LABELS" envSeparator:","`
+	GatewayStatusNames []string `env:"CREAMY_GATEWAY_GATEWAY_STATUS_NAMES" envSeparator:","`
 
 	Gateways []gateway
 

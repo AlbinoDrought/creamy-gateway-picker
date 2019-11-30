@@ -10,37 +10,6 @@ import (
 	"github.com/imroc/req"
 )
 
-type sensemillaFirewallRule struct {
-	id          string
-	iface       string
-	source      string
-	destination string
-	gateway     string
-	description string
-
-	client *sensemillaClient
-}
-
-func (rule *sensemillaFirewallRule) Source() string {
-	return rule.source
-}
-
-func (rule *sensemillaFirewallRule) Destination() string {
-	return rule.destination
-}
-
-func (rule *sensemillaFirewallRule) Gateway() string {
-	return rule.gateway
-}
-
-func (rule *sensemillaFirewallRule) Description() string {
-	return rule.description
-}
-
-func (rule *sensemillaFirewallRule) Delete() error {
-	return rule.client.deleteRule(rule.iface, rule.id)
-}
-
 type sensemillaClient struct {
 	host     string
 	username string
@@ -118,6 +87,72 @@ func (client *sensemillaClient) fetchOrLogin(fetch func() (*goquery.Document, er
 	}
 
 	return document, err
+}
+
+func (client *sensemillaClient) gateways() (*goquery.Document, error) {
+	return client.fetchOrLogin(func() (*goquery.Document, error) {
+		path, err := client.path("/status_gateways.php")
+		if err != nil {
+			return nil, err
+		}
+
+		result, err := req.Get(path)
+		if err != nil {
+			return nil, err
+		}
+
+		resp := result.Response()
+		if resp == nil {
+			return nil, errors.New("unexpected nil response during ListGateways")
+		}
+
+		defer resp.Body.Close()
+		if resp.StatusCode != 200 {
+			return nil, fmt.Errorf("unexpected status code %d when getting gateways", resp.StatusCode)
+		}
+
+		return goquery.NewDocumentFromReader(resp.Body)
+	})
+}
+
+func (client *sensemillaClient) ListGateways() ([]Gateway, error) {
+	doc, err := client.gateways()
+	if err != nil {
+		return nil, err
+	}
+
+	gatewayRows := doc.Find(".table-responsive .table tbody tr")
+
+	gateways := make([]Gateway, gatewayRows.Length())
+
+	gatewayRows.Each(func(i int, s *goquery.Selection) {
+		/*
+			1 Name
+			2 Gateway
+			3 Monitor
+			4 RTT
+			5 RTTsd
+			6 Loss
+			7 Status
+			8 Description
+		*/
+		gateway := &sensemillaGateway{
+			name:        strings.TrimSpace(s.Find("td:nth-child(1)").Text()),
+			gateway:     strings.TrimSpace(s.Find("td:nth-child(2)").Text()),
+			monitor:     strings.TrimSpace(s.Find("td:nth-child(3)").Text()),
+			rtt:         strings.TrimSpace(s.Find("td:nth-child(4)").Text()),
+			rttsd:       strings.TrimSpace(s.Find("td:nth-child(5)").Text()),
+			loss:        strings.TrimSpace(s.Find("td:nth-child(6)").Text()),
+			status:      strings.TrimSpace(s.Find("td:nth-child(7)").Text()),
+			description: strings.TrimSpace(s.Find("td:nth-child(8)").Text()),
+		}
+
+		gateway.online = s.Find("td:nth-child(7)").HasClass("bg-success")
+
+		gateways[i] = gateway
+	})
+
+	return gateways, nil
 }
 
 func (client *sensemillaClient) firewallRules(iface string) (*goquery.Document, error) {

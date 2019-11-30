@@ -12,6 +12,13 @@ const deleteDork = "creamy-gateway-delete"
 
 var statelock sync.RWMutex
 
+func getGatewayStatus() ([]remote.Gateway, error) {
+	statelock.RLock()
+	defer statelock.RUnlock()
+
+	return client.ListGateways()
+}
+
 func getActiveRule(iface, source string) (remote.FirewallRule, error) {
 	statelock.RLock()
 	defer statelock.RUnlock()

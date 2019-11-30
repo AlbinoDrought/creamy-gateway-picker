@@ -25,10 +25,16 @@ func main() {
 		cfg.GatewayLabels = cfg.GatewayNames
 	}
 
+	if len(cfg.GatewayStatusNames) != len(cfg.GatewayNames) {
+		log.Println("gateway status name and normal name mismatch, using names as status names")
+		cfg.GatewayStatusNames = cfg.GatewayNames
+	}
+
 	gateways := make([]gateway, len(cfg.GatewayNames))
 	for i, gatewayName := range cfg.GatewayNames {
 		gateways[i].Name = gatewayName
 		gateways[i].Label = cfg.GatewayLabels[i]
+		gateways[i].StatusName = cfg.GatewayStatusNames[i]
 	}
 	cfg.Gateways = gateways
 

@@ -7,6 +7,8 @@ import (
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/AlbinoDrought/creamy-gateway-override/remote"
 )
 
 const rawTemplateViewGateways = `
@@ -31,7 +33,7 @@ const rawTemplateViewGateways = `
 			display: flex;
 			flex-direction: column;
 			justify-content: center;
-			max-width: 350px;
+			max-width: 400px;
 		}
 
 		.gateway {
@@ -45,8 +47,18 @@ const rawTemplateViewGateways = `
 		}
 
 		.gateway--active {
-			background-color: #005500;
+			background-color: #00550055;
 		}
+
+		.gateway__status {
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			align-items: center;
+		}
+
+		.status--online { color: lawngreen; }
+		.status--offline { color: crimson; }
 		</style>
 	</head>
 	<body>
@@ -57,11 +69,37 @@ const rawTemplateViewGateways = `
 				{{ if (eq $element.Active true) }}
 					<div class="gateway gateway--active">
 						<strong>{{ $element.Label }}</strong>
+
+						{{ if (eq $element.HasKnownStatus true) }}
+						<div class="gateway__status">
+							{{ if (eq $element.Online true) }}
+							<span class="status status--online">Online</span>
+							{{ else }}
+							<span class="status status--offline">Offline</span>
+							{{ end }}
+
+							<span>{{ $element.RoundtripTime }}</span>
+						</div>
+						{{ end }}
+
 						<span>(active)</span>
 					</div>
 				{{ else }}
 					<div class="gateway gateway--inactive">
-						{{ $element.Label }}
+						<span>{{ $element.Label }}</span>
+
+						{{ if (eq $element.HasKnownStatus true) }}
+						<div class="gateway__status">
+							{{ if (eq $element.Online true) }}
+							<span class="status status--online">Online</span>
+							{{ else }}
+							<span class="status status--offline">Offline</span>
+							{{ end }}
+							
+							<span>{{ $element.RoundtripTime }}</span>
+						</div>
+						{{ end }}
+
 						<form method="POST">
 							<button type="submit" name="gateway" value="{{ $element.Name }}">Activate</button>
 						</form>
@@ -91,27 +129,48 @@ func handlerViewGateways(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	gatewayStatus, err := getGatewayStatus()
+	if err != nil {
+		w.WriteHeader(500)
+		w.Write([]byte(err.Error()))
+		return
+	}
+
+	gatewayStatusMap := make(map[string]remote.Gateway, len(gatewayStatus))
+	for _, gateway := range gatewayStatus {
+		gatewayStatusMap[gateway.Name()] = gateway
+	}
+
 	activeRule, err := getActiveRule(cfg.RemoteInterface, ip)
 	if err != nil {
 		w.WriteHeader(500)
 		w.Write([]byte(err.Error()))
+		return
 	}
 
 	if activeRule != nil {
 		activeGatewayName = activeRule.Gateway()
 	}
 
-	log.Println("active gateway name:", activeGatewayName)
-
-	gatewaysWithActiveStatus := make([]struct {
+	gatewaysWithState := make([]struct {
 		Name   string
 		Label  string
 		Active bool
+
+		HasKnownStatus bool
+		RoundtripTime  string
+		Online         bool
 	}, len(gateways))
 	for i, gateway := range gateways {
-		gatewaysWithActiveStatus[i].Name = gateway.Name
-		gatewaysWithActiveStatus[i].Label = gateway.Label
-		gatewaysWithActiveStatus[i].Active = gateway.Name == activeGatewayName
+		gatewaysWithState[i].Name = gateway.Name
+		gatewaysWithState[i].Label = gateway.Label
+		gatewaysWithState[i].Active = gateway.Name == activeGatewayName
+
+		if status, found := gatewayStatusMap[gateway.StatusName]; found {
+			gatewaysWithState[i].HasKnownStatus = true
+			gatewaysWithState[i].RoundtripTime = status.RoundtripTime()
+			gatewaysWithState[i].Online = status.Online()
+		}
 	}
 
 	w.Header().Add("Content-Type", "text/html")
@@ -121,10 +180,14 @@ func handlerViewGateways(w http.ResponseWriter, r *http.Request) {
 			Name   string
 			Label  string
 			Active bool
+
+			HasKnownStatus bool
+			RoundtripTime  string
+			Online         bool
 		}
 		Source string
 	}{
-		Gateways: gatewaysWithActiveStatus,
+		Gateways: gatewaysWithState,
 		Source:   ip,
 	})
 	if err != nil {
