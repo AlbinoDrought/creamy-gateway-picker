@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"log"
-	"strings"
+	"os"
+	"os/signal"
 	"sync"
 
 	"github.com/AlbinoDrought/creamy-gateway-override/remote"
@@ -10,78 +12,71 @@ import (
 	"github.com/imroc/req"
 )
 
-const dork = "[creamy-gateway]"
-const deleteDork = "creamy-gateway-delete"
-
-var statelock sync.Mutex
 var client remote.Client
-
-func setGateway(iface, source, gateway, label string) (remote.FirewallRule, error) {
-	statelock.Lock()
-	defer statelock.Unlock()
-
-	rules, err := client.ListRules(iface)
-	if err != nil {
-		return nil, err
-	}
-
-	// check for old rules, remove them:
-	for _, rule := range rules {
-		if rule.Source() == source && strings.HasPrefix(rule.Description(), dork) {
-			err = rule.Delete()
-			if err != nil {
-				return nil, err
-			}
-
-			break
-		}
-	}
-
-	if gateway == deleteDork {
-		return nil, nil
-	}
-
-	// create new rule:
-	description := dork + " user chose \"" + label + "\" (" + gateway + ")"
-	return client.AddRule(iface, source, "*", gateway, description)
-}
+var cfg config
 
 func main() {
-	cfg := config{}
 	if err := env.Parse(&cfg); err != nil {
 		log.Fatalln("error parsing config", err)
 	}
-	req.SetFlags(req.LreqHead | req.LreqBody)
-	req.Debug = true
+
+	if len(cfg.GatewayLabels) != len(cfg.GatewayNames) {
+		log.Println("gateway label and name mismatch, using names as labels")
+		cfg.GatewayLabels = cfg.GatewayNames
+	}
+
+	gateways := make([]gateway, len(cfg.GatewayNames))
+	for i, gatewayName := range cfg.GatewayNames {
+		gateways[i].Name = gatewayName
+		gateways[i].Label = cfg.GatewayLabels[i]
+	}
+	cfg.Gateways = gateways
+
+	if cfg.Debug {
+		req.SetFlags(req.LreqHead | req.LreqBody)
+		req.Debug = true
+	}
 
 	client = remote.NewSensemillaClient(cfg.RemoteHost, cfg.RemoteUsername, cfg.RemotePassword)
 
-	/*
-		rules, err := client.ListRules(cfg.RemoteInterface)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	gracefulWaitGroup := sync.WaitGroup{}
+	gracefulShutdownComplete := make(chan bool, 1)
+
+	serverFinished := bootServer(ctx)
+	gracefulWaitGroup.Add(1)
+	go func() {
+		err := <-serverFinished
 		if err != nil {
-			panic(err)
+			log.Println("server exited with error", err)
 		}
+		gracefulWaitGroup.Done()
+	}()
 
-		log.Println("all rules")
-		for _, rule := range rules {
-			log.Println(rule.Source(), rule.Destination(), rule.Gateway(), rule.Description())
+	go func() {
+		gracefulWaitGroup.Wait()
+		gracefulShutdownComplete <- true
+	}()
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	firstInterrupt := true
+
+	for {
+		select {
+		case <-gracefulShutdownComplete:
+			log.Println("Graceful shutdown finished, bye!")
+			return
+		case <-c:
+			if firstInterrupt {
+				firstInterrupt = false
+				cancel()
+				log.Println("Interrupt received, initiated graceful shutdown")
+			} else {
+				log.Println("Performing unclean shutdown")
+				return
+			}
 		}
-
-		rule, err := client.AddRule(cfg.RemoteInterface, "172.16.30.108", "*", "LOADBALANCE", "test")
-		if err != nil {
-			panic(err)
-		}
-		log.Println("created rule")
-		log.Println(rule.Source(), rule.Destination(), rule.Gateway(), rule.Description())
-
-		rule.Delete()
-		log.Println("deleted rule")
-	*/
-
-	rule, err := setGateway(cfg.RemoteInterface, "172.16.30.108", "LOADBALANCE", "loadbalance")
-	if err != nil {
-		panic(err)
 	}
-	log.Println("created rule")
-	log.Println(rule.Source(), rule.Destination(), rule.Gateway(), rule.Description())
 }
