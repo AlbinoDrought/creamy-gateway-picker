@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/AlbinoDrought/creamy-gateway-override/remote"
@@ -128,7 +129,21 @@ const rawTemplateViewGateways = `
 var templateViewGateways = template.Must(template.New("viewGateways").Parse(rawTemplateViewGateways))
 
 func getSource(r *http.Request) (string, error) {
+	if cfg.TrustForwardedHeaders {
+		forwardedAddresses := r.Header.Get("X-Forwarded-For")
+
+		if forwardedAddresses != "" {
+			firstComma := strings.Index(forwardedAddresses, ",")
+			if firstComma == -1 {
+				return forwardedAddresses, nil
+			}
+
+			return forwardedAddresses[:firstComma], nil
+		}
+	}
+
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+
 	return ip, err
 }
 

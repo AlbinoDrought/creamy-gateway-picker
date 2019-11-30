@@ -20,5 +20,6 @@ type config struct {
 
 	Gateways []gateway
 
-	Port string `env:"CREAMY_GATEWAY_PORT" envDefault:"5000"`
+	TrustForwardedHeaders bool   `env:"CREAMY_GATEWAY_TRUST_FORWARDED_HEADERS"`
+	Port                  string `env:"CREAMY_GATEWAY_PORT" envDefault:"5000"`
 }
