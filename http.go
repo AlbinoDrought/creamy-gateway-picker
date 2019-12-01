@@ -157,22 +157,13 @@ func getSource(r *http.Request) (string, error) {
 	return ip, err
 }
 
-func handlerViewGateways(w http.ResponseWriter, r *http.Request) {
+func getGatewaysWithState(source string) ([]gatewayWithState, error) {
 	gateways := cfg.Gateways
 	activeGatewayName := deleteDork
 
-	ip, err := getSource(r)
-	if err != nil {
-		w.WriteHeader(500)
-		w.Write([]byte("could not get source"))
-		return
-	}
-
 	gatewayStatus, err := getGatewayStatus()
 	if err != nil {
-		w.WriteHeader(500)
-		w.Write([]byte(err.Error()))
-		return
+		return nil, err
 	}
 
 	gatewayStatusMap := make(map[string]remote.Gateway, len(gatewayStatus))
@@ -180,11 +171,9 @@ func handlerViewGateways(w http.ResponseWriter, r *http.Request) {
 		gatewayStatusMap[gateway.Name()] = gateway
 	}
 
-	activeRule, err := getActiveRule(cfg.RemoteInterface, ip)
+	activeRule, err := getActiveRule(cfg.RemoteInterface, source)
 	if err != nil {
-		w.WriteHeader(500)
-		w.Write([]byte(err.Error()))
-		return
+		return nil, err
 	}
 
 	if activeRule != nil {
@@ -202,6 +191,24 @@ func handlerViewGateways(w http.ResponseWriter, r *http.Request) {
 			gatewaysWithState[i].RoundtripTime = status.RoundtripTime()
 			gatewaysWithState[i].Online = status.Online()
 		}
+	}
+
+	return gatewaysWithState, nil
+}
+
+func handlerViewGateways(w http.ResponseWriter, r *http.Request) {
+	ip, err := getSource(r)
+	if err != nil {
+		w.WriteHeader(500)
+		w.Write([]byte("could not get source"))
+		return
+	}
+
+	gatewaysWithState, err := getGatewaysWithState(ip)
+	if err != nil {
+		w.WriteHeader(500)
+		w.Write([]byte("could not get gateways with state"))
+		return
 	}
 
 	w.Header().Add("Content-Type", "text/html")
