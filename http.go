@@ -128,6 +128,16 @@ const rawTemplateViewGateways = `
 
 var templateViewGateways = template.Must(template.New("viewGateways").Parse(rawTemplateViewGateways))
 
+type gatewayWithState struct {
+	Name   string
+	Label  string
+	Active bool
+
+	HasKnownStatus bool
+	RoundtripTime  string
+	Online         bool
+}
+
 func getSource(r *http.Request) (string, error) {
 	if cfg.TrustForwardedHeaders {
 		forwardedAddresses := r.Header.Get("X-Forwarded-For")
@@ -181,15 +191,7 @@ func handlerViewGateways(w http.ResponseWriter, r *http.Request) {
 		activeGatewayName = activeRule.Gateway()
 	}
 
-	gatewaysWithState := make([]struct {
-		Name   string
-		Label  string
-		Active bool
-
-		HasKnownStatus bool
-		RoundtripTime  string
-		Online         bool
-	}, len(gateways))
+	gatewaysWithState := make([]gatewayWithState, len(gateways))
 	for i, gateway := range gateways {
 		gatewaysWithState[i].Name = gateway.Name
 		gatewaysWithState[i].Label = gateway.Label
@@ -205,16 +207,8 @@ func handlerViewGateways(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "text/html")
 
 	err = templateViewGateways.Execute(w, struct {
-		Gateways []struct {
-			Name   string
-			Label  string
-			Active bool
-
-			HasKnownStatus bool
-			RoundtripTime  string
-			Online         bool
-		}
-		Source string
+		Gateways []gatewayWithState
+		Source   string
 	}{
 		Gateways: gatewaysWithState,
 		Source:   ip,
