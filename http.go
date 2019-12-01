@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"html/template"
 	"log"
@@ -130,13 +131,13 @@ const rawTemplateViewGateways = `
 var templateViewGateways = template.Must(template.New("viewGateways").Parse(rawTemplateViewGateways))
 
 type gatewayWithState struct {
-	Name   string
-	Label  string
-	Active bool
+	Name   string `json:"name"`
+	Label  string `json:"label"`
+	Active bool   `json:"active"`
 
-	HasKnownStatus bool
-	RoundtripTime  string
-	Online         bool
+	HasKnownStatus bool   `json:"has_known_status"`
+	RoundtripTime  string `json:"roundtrip_time"`
+	Online         bool   `json:"online"`
 }
 
 func getSource(r *http.Request) (string, error) {
@@ -261,10 +262,57 @@ func handlerSetGateway(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
+func handlerViewGatewaysAPI(w http.ResponseWriter, r *http.Request) {
+	ip, err := getSource(r)
+	if err != nil {
+		w.WriteHeader(500)
+		w.Write([]byte("could not get source"))
+		return
+	}
+
+	gatewaysWithState, err := getGatewaysWithState(ip)
+	if err != nil {
+		w.WriteHeader(500)
+		w.Write([]byte("could not get gateways with state"))
+		return
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+
+	json.NewEncoder(w).Encode(gatewaysWithState)
+}
+
+func handlerSetGatewayAPI(w http.ResponseWriter, r *http.Request) {
+	ip, err := getSource(r)
+	if err != nil {
+		w.WriteHeader(500)
+		w.Write([]byte("could not get source"))
+		return
+	}
+
+	gateway, err := getGatewayByName(r.FormValue("gateway"))
+	if err != nil {
+		w.WriteHeader(500)
+		w.Write([]byte("gateway not found"))
+		return
+	}
+
+	_, err = setGateway(cfg.RemoteInterface, ip, gateway.Name, gateway.Label)
+	if err != nil {
+		w.WriteHeader(500)
+		w.Write([]byte("failed to set gateway"))
+		return
+	}
+
+	w.WriteHeader(204)
+}
+
 func bootServer(ctx context.Context) chan error {
 	router := makeRouter([]routeDef{
 		routeDef{"GET", "/", "ViewGateways", handlerViewGateways},
 		routeDef{"POST", "/", "SetGateway", handlerSetGateway},
+		routeDef{"GET", "/api/gateways", "ViewGatewaysAPI", handlerViewGatewaysAPI},
+		routeDef{"POST", "/api/gateways", "SetGatewayAPI", handlerSetGatewayAPI},
 	})
 
 	src := &http.Server{
