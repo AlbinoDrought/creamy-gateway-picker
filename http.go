@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"html/template"
 	"log"
 	"net"
@@ -196,6 +197,16 @@ func getGatewaysWithState(source string) ([]gatewayWithState, error) {
 	return gatewaysWithState, nil
 }
 
+func getGatewayByName(gatewayName string) (*gateway, error) {
+	for _, gateway := range cfg.Gateways {
+		if gateway.Name == gatewayName {
+			return &gateway, nil
+		}
+	}
+
+	return nil, errors.New("gateway not found")
+}
+
 func handlerViewGateways(w http.ResponseWriter, r *http.Request) {
 	ip, err := getSource(r)
 	if err != nil {
@@ -226,26 +237,17 @@ func handlerViewGateways(w http.ResponseWriter, r *http.Request) {
 }
 
 func handlerSetGateway(w http.ResponseWriter, r *http.Request) {
-	gateways := cfg.Gateways
-
-	userSubmittedGateway := r.FormValue("gateway")
-	var gateway gateway
-
-	for _, gateway = range gateways {
-		if gateway.Name == userSubmittedGateway {
-			break
-		}
-	}
-
-	if gateway.Name == "" {
-		gateway.Name = deleteDork
-		gateway.Label = deleteDork
-	}
-
 	ip, err := getSource(r)
 	if err != nil {
 		w.WriteHeader(500)
 		w.Write([]byte("could not get source"))
+		return
+	}
+
+	gateway, err := getGatewayByName(r.FormValue("gateway"))
+	if err != nil {
+		w.WriteHeader(500)
+		w.Write([]byte("gateway not found"))
 		return
 	}
 
